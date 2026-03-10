@@ -1,9 +1,19 @@
-import { BaseWindow, BrowserWindow, Event, Point, screen, WebContents } from 'electron';
+import { BaseWindow, BrowserWindow, Event, Point, Rectangle, screen, WebContents } from 'electron';
 
 /** Configuration options for window drag behavior. */
 export interface DragOptions {
-  /** Drag zone height from top in pixels. 0 or undefined = entire window. */
-  actionArea?: number;
+  /**
+   * Draggable region. If not specified, the entire content is draggable (following the other options).
+   * 
+   * Only checks for existing bounds:
+   * @example
+   * region: { height: 200 } // Draggable within 200px from top, regardless of window height
+   * @example
+   * region: { y: 100 } // Draggable only below 100px from top
+   * @example
+   * region: { y: 50, height: 100 } // Draggable between 50px and 150px from top
+   */
+  region?: Partial<Rectangle>;
   /** CSS selector that marks elements as drag handles. Exclusive with `exclude`. */
   selector?: string;
   /** CSS selector for elements that should NOT trigger drag. Exclusive with `selector`. */
@@ -40,6 +50,7 @@ export class Draggable {
   private static readonly CATCH_FALSE = () => false;
   private readonly optionsByWebContents = new Map<WebContents, InternalDragOptions>();
   private readonly options: InternalDragOptions;
+  private readonly onClosed = () => { this.disable(); };
   private window?: DraggableWindow;
 
   /**
@@ -96,10 +107,9 @@ export class Draggable {
    * @param options Optional drag behavior configuration
    */
   private constructor(window: DraggableWindow, options: DragOptions = {}) {
-    this.window = window;
+    this.setWindow(window);
     this.options = options;
     Draggable.normalizeOptions(this.options);
-    this.window.on('closed', () => { this.disable(); });
 
     // Auto-attach for BrowserWindow (has its own webContents)
     if (this.options.attachOnInit !== false && window instanceof BrowserWindow) {
@@ -206,11 +216,15 @@ export class Draggable {
 
   /** Retarget the instance to a new window. */
   public setWindow(newWindow: DraggableWindow): this {
-    const oldWin = this.window!;
+    const oldWin = this.window;
     this.window = newWindow;
-    if (oldWin.__wdrag__ === this) {
-      oldWin.__wdrag__ = undefined; // Clear old reference 
-      this.window.__wdrag__ = this; // Set new reference
+    this.window.addListener('closed', this.onClosed);
+    if (oldWin) {
+      if (oldWin.__wdrag__ === this) {
+        oldWin.__wdrag__ = undefined; // Clear old reference 
+        this.window.__wdrag__ = this; // Set new reference
+      }
+      oldWin.removeListener('closed', this.onClosed);
     }
     return this;
   }
@@ -298,7 +312,7 @@ export class Draggable {
 
   // eslint-disable-next-line @stylistic/max-len
   private static isDraggable(webContents: WebContents, point: Point, options: InternalDragOptions): false | Promise<boolean> {
-    if (options.actionArea && point.y > options.actionArea) { return false; }
+    if (options.region && !Draggable.isDraggingRegion(options.region, point)) { return false; }
 
     if (options.selector) {
       return Draggable.closest(webContents, point, options.selector);
@@ -309,6 +323,13 @@ export class Draggable {
     }
 
     return Draggable.TRUE_PROMISE;
+  }
+
+  private static isDraggingRegion(region: Partial<Rectangle>, point: Point): boolean {
+    return (region.width === void 0 || point.x <= region.width)
+        && (region.height === void 0 || point.y <= region.height) 
+        && (region.x === void 0 || point.x >= region.x)
+        && (region.y === void 0 || point.y >= region.y);
   }
 
   private static normalizeOptions(options: InternalDragOptions): void {

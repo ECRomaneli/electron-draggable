@@ -20,7 +20,7 @@ function setupWindow() {
   window.contentView.addChildView(view);
   view.setBounds({ x: 0, y: 0, width: 800, height: 600 });
   view.webContents.loadFile(`${__dirname}/sample.html`);
-  const dragHandler = Draggable.from(window, { actionArea: 100 }).attach(view.webContents, { exclude: '.not-drag-1, button'});
+  const dragHandler = Draggable.from(window, { dragZone: { height: 100 } }).attach(view.webContents, { exclude: '.not-drag-1, button'});
   Draggable.create(window, { selector: '.drag-2', fps: 10 }).attach(view.webContents);
   if (dragHandler !== Draggable.from(window)) {
     window.destroy();

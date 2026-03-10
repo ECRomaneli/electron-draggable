@@ -31,7 +31,7 @@ The `electron-draggable` package provides a lightweight, main-process solution f
 - **Zero renderer-side code** — everything runs in the main process.
 - **Works with `BrowserWindow` and `BaseWindow`** — supports both standard and multi-view setups.
 - **Selector-based filtering** — include or exclude specific elements from dragging via CSS selectors.
-- **Action area** — restrict dragging to a top region (e.g., a custom title bar).
+- **Drag region** — restrict dragging to a specific region (e.g., a custom title bar) using partial bounds.
 - **Double-click to maximize** — optional built-in support for maximize/unmaximize on double-click.
 - **Configurable FPS** — drag update rate defaults to the screen refresh rate.
 
@@ -60,7 +60,7 @@ const drag = Draggable.from(window)
 You can also pass drag options during creation:
 
 ```js
-const drag = Draggable.from(window, { actionArea: 40, maximize: true })
+const drag = Draggable.from(window, { region: { height: 40 }, maximize: true })
 ```
 
 When a `BrowserWindow` is used, its `webContents` is automatically attached as a drag source (unless `attachOnInit` is set to `false`).
@@ -79,21 +79,21 @@ Each instance independently manages its own drag configuration and WebContents a
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `actionArea` | `number` | Entire Window | Drag zone height from top in pixels. `0` or `undefined` = entire window. |
+| `region` | `Partial<Rectangle>` | Entire Window | Restricts dragging to a region. Only specified bounds are checked (e.g., `{ height: 40 }` for the top 40px). |
 | `selector` | `string` | Disabled | CSS selector that marks elements as drag handles. **Exclusive** with `exclude`. |
 | `exclude` | `string` | Disabled | CSS selector for elements that should **NOT** trigger drag. **Exclusive** with `selector`. |
 | `maximize` | `boolean` | Disabled | Enable double-click to maximize/unmaximize. |
 | `fps` | `number` | Screen refresh rate | Frames per second for drag position updates. |
 | `attachOnInit` | `boolean` | `true` | If true, auto-attach the `BrowserWindow.webContents` on initialization. |
 
-> **Note:** `selector` and `exclude` are mutually exclusive. Use `selector` to whitelist draggable areas, or `exclude` to blacklist non-draggable elements within the drag zone.
+> **Note:** `selector` and `exclude` are mutually exclusive. Use `selector` to whitelist draggable areas, or `exclude` to blacklist non-draggable elements within the drag region.
 
 ### Attaching and Detaching WebContents
 
 For `BaseWindow` setups with multiple `WebContentsView` children, you can manually attach and detach drag sources:
 
 ```js
-const drag = Draggable.from(baseWindow, { actionArea: 100 })
+const drag = Draggable.from(baseWindow, { region: { height: 100 } })
 
 // Attach a view's webContents with per-view overrides
 drag.attach(view.webContents, { exclude: '.no-drag, button' })
@@ -116,7 +116,7 @@ You can update options at any time. Changes apply immediately to all subsequent 
 drag.updateOptions({ fps: 120, maximize: true })
 
 // Update options for a SPECIFIC WebContents
-drag.updateOptions(view.webContents, { actionArea: 60 })
+drag.updateOptions(view.webContents, { region: { height: 60 } })
 ```
 
 ### Disabling Drag
@@ -152,7 +152,7 @@ app.whenReady().then(() => {
   window.loadURL('https://github.com/ECRomaneli/electron-draggable')
 
   // Enable dragging on the top 40px, with double-click to maximize
-  Draggable.from(window, { actionArea: 40, maximize: true })
+  Draggable.from(window, { region: { height: 40 }, maximize: true })
 })
 ```
 
@@ -171,7 +171,7 @@ app.whenReady().then(() => {
   view.webContents.loadFile('index.html')
 
   // Create drag instance and attach the view
-  const drag = Draggable.from(window, { actionArea: 100 })
+  const drag = Draggable.from(window, { region: { height: 100 } })
   drag.attach(view.webContents, { exclude: '.no-drag, button' })
 })
 ```
@@ -182,7 +182,7 @@ app.whenReady().then(() => {
 <!-- <img src="IMAGE_PLACEHOLDER_HOW_IT_WORKS_DIAGRAM" alt="How It Works"> -->
 
 1. The `Draggable` instance hooks into `webContents.on('before-mouse-event')` for each attached `WebContents`.
-2. On `mouseDown`, it checks whether the click position is within the action area and matches the selector/exclude rules (using `document.elementFromPoint` via `executeJavaScript`).
+2. On `mouseDown`, it checks whether the click position is within the drag region and matches the selector/exclude rules (using `document.elementFromPoint` via `executeJavaScript`).
 3. If the position is draggable, it records the offset between the cursor and the window position.
 4. On `mouseMove`, it starts an interval (at the configured FPS) that reads the cursor screen position and updates the window position accordingly.
 5. On `mouseUp` (or any non-move event), the interval is cleared and dragging stops.
