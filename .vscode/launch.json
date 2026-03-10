@@ -1,0 +1,16 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Sample",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+            "args": ["--trace-warnings", "${workspaceFolder}/test/sample.js"],
+            "preLaunchTask": "build:dev",
+            "env": {
+                "NODE_ENV": "development"
+            }
+        }
+    ]
+}

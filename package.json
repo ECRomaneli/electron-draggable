@@ -1,0 +1,54 @@
+{
+  "name": "electron-draggable",
+  "version": "0.0.1-debug",
+  "description": "Multi-platform Electron window drag tool.",
+  "exports": {
+    ".": {
+      "types": "./dist/main.d.ts",
+      "default": "./dist/main.js"
+    }
+  },
+  "files": [
+    "dist/**/*",
+    "LICENSE",
+    "!dist/preload.d.ts"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && webpack",
+    "build:dev": "npm run clean && NODE_ENV=development webpack",
+    "dev": "webpack --mode development --watch",
+    "sample": "electron --trace-warnings test/sample.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ECRomaneli/electron-draggable.git"
+  },
+  "keywords": [
+    "draggable",
+    "electron-draggable",
+    "electron-drag",
+    "electron-window-drag",
+    "window-drag",
+    "electron",
+    "electronjs"
+  ],
+  "author": "ECRomaneli",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/ECRomaneli/electron-draggable/issues"
+  },
+  "homepage": "https://github.com/ECRomaneli/electron-draggable#readme",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "devDependencies": {
+    "@types/electron": "^1.6.12",
+    "@types/node": "^25.4.0",
+    "electron": ">=37.0.0",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.9.3",
+    "webpack": "^5.105.4",
+    "webpack-cli": "^6.0.1"
+  }
+}
