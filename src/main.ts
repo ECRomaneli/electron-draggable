@@ -33,7 +33,7 @@ interface DragState {
 
 type MouseHandler = (event: Event, mouse: Electron.MouseInputEvent) => void;
 
-export type DraggableWindow = BaseWindow & { __wdrag__?: Draggable };
+type DraggableWindow = BaseWindow & { __wdrag__?: Draggable };
 
 export class Draggable {
   private static readonly TRUE_PROMISE = Promise.resolve(true);
@@ -108,20 +108,22 @@ export class Draggable {
   }
 
   /** Register a WebContents as a drag source for this window. */
-  public attach(webContents: WebContents, overrideOptions?: DragOptions): void {
+  public attach(webContents: WebContents, overrideOptions?: DragOptions): this {
     if (webContents.isDestroyed()) {
       throw new Error('Cannot attach to destroyed WebContents');
     }
 
     if (this.optionsByWebContents.has(webContents)) {
       overrideOptions && this.updateOptions(webContents, overrideOptions);
-      return;
+      return this;
     }
 
     let options: InternalDragOptions;
     if (overrideOptions) {
-      Draggable.normalizeOptions(overrideOptions);
-      options = { ...this.options, ...overrideOptions };
+      // Fix: Avoid changing the user-provided options object
+      const newOptions = { ...overrideOptions };
+      Draggable.normalizeOptions(newOptions);
+      options = { ...this.options, ...newOptions };
     } else {
       options = { ...this.options };
     }
@@ -132,34 +134,40 @@ export class Draggable {
     this.optionsByWebContents.set(webContents, options);
     webContents.on('before-mouse-event', options.eventHandler);
     webContents.once('destroyed', options.destroyListener);
+    return this;
   }
 
   /** Unregister a WebContents from dragging. */
-  public detach(webContents: WebContents): void {
+  public detach(webContents: WebContents): this {
     const options = this.optionsByWebContents.get(webContents);
     if (options) {
       webContents.removeListener('before-mouse-event', options.eventHandler!);
       webContents.removeListener('destroyed', options.destroyListener!);
       this.optionsByWebContents.delete(webContents);
     }
+    return this;
   }
 
   /** Unregister all WebContents from dragging. */
-  public detachAll(): void {
+  public detachAll(): this {
     for (const wc of this.optionsByWebContents.keys()) {
       this.detach(wc);
     }
+    return this;
   }
 
   /**
    * Disable drag for all registered WebContents and release the window reference.
    * @remarks After calling this method, the instance is dead and must not be reused.
    */
-  public disable(): void {
-    if (!this.window) { return; }
+  public disable(): this {
+    if (!this.window) { return this; }
     this.detachAll();
-    this.window.__wdrag__ = undefined;
+    if (this.window.__wdrag__ === this) {
+      this.window.__wdrag__ = undefined;
+    }
     this.window = undefined;
+    return this;
   }
 
   /**
@@ -169,7 +177,7 @@ export class Draggable {
    * @example
    * drag.updateOptions({ fps: 120 });
    */
-  public updateOptions(update: Partial<DragOptions>): void;
+  public updateOptions(update: Partial<DragOptions>): this;
 
   /**
    * Update drag options for specific WebContents.
@@ -179,9 +187,9 @@ export class Draggable {
    * @example
    * drag.updateOptions(webContents, { fps: 120 });
    */
-  public updateOptions(wc: WebContents, update: Partial<DragOptions>): void;
+  public updateOptions(wc: WebContents, update: Partial<DragOptions>): this;
 
-  public updateOptions(wcOrUpdate: WebContents | Partial<DragOptions>, update?: Partial<DragOptions>): void {
+  public updateOptions(wcOrUpdate: WebContents | Partial<DragOptions>, update?: Partial<DragOptions>): this {
     const newOptions = update ?? wcOrUpdate as Partial<DragOptions>;
     Draggable.normalizeOptions(newOptions);
 
@@ -193,14 +201,18 @@ export class Draggable {
         Object.assign(options, newOptions);
       }
     }
+    return this;
   }
 
   /** Retarget the instance to a new window. */
-  public setWindow(newWin: DraggableWindow): void {
-    this.window!.__wdrag__ = undefined; // Clear old reference
-
-    this.window = newWin;
-    this.window.__wdrag__ = this; // Set new reference
+  public setWindow(newWindow: DraggableWindow): this {
+    const oldWin = this.window!;
+    this.window = newWindow;
+    if (oldWin.__wdrag__ === this) {
+      oldWin.__wdrag__ = undefined; // Clear old reference 
+      this.window.__wdrag__ = this; // Set new reference
+    }
+    return this;
   }
 
   private createEventHandler(wc: WebContents): MouseHandler {
