@@ -279,14 +279,19 @@ export class Draggable {
           const isDraggable = Draggable.isDraggable(wc, input, options);
           if (isDraggable === false) { return; }
           this.setInitialPosition(dragState); // Not using input.x/y because of inconsistent values
+
+          if (isDraggable === true) { dragState.interval = null; return; }
           (async () => await isDraggable && (dragState.interval = null))();
           return;
         }
 
         // Handle double-click to maximize/unmaximize
         if (input.clickCount === 2 && options.maximize) {
+          const isDraggable = Draggable.isDraggable(wc, input, options);
+          if (isDraggable === false) { return; }
           e.preventDefault();
-          this.toggleMaximize();
+          if (isDraggable === true) { this.toggleMaximize(); return; }
+          (async () => await isDraggable && this.toggleMaximize())();
         }
       }
     };
@@ -311,7 +316,7 @@ export class Draggable {
   }
 
   // eslint-disable-next-line @stylistic/max-len
-  private static isDraggable(webContents: WebContents, point: Point, options: InternalDragOptions): false | Promise<boolean> {
+  private static isDraggable(webContents: WebContents, point: Point, options: InternalDragOptions): boolean | Promise<boolean> {
     if (options.region && !Draggable.isDraggingRegion(options.region, point)) { return false; }
 
     if (options.selector) {
@@ -322,7 +327,7 @@ export class Draggable {
       return Draggable.closest(webContents, point, options.exclude, true);
     }
 
-    return Draggable.TRUE_PROMISE;
+    return true;
   }
 
   private static isDraggingRegion(region: Partial<Rectangle>, point: Point): boolean {

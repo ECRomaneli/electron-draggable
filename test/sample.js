@@ -3,7 +3,6 @@ const { Draggable } = require('electron-draggable')
 
 app.whenReady().then(() => {  
   const window = setupWindow();
-  setupFindbar(window);
   Menu.setApplicationMenu(null);
   setupApplicationMenu(window);
 })
@@ -21,7 +20,7 @@ function setupWindow() {
   view.setBounds({ x: 0, y: 0, width: 800, height: 600 });
   view.webContents.loadFile(`${__dirname}/sample.html`);
   const dragHandler = Draggable.from(window, { dragZone: { height: 100 } }).attach(view.webContents, { exclude: '.not-drag-1, button'});
-  Draggable.create(window, { selector: '.drag-2', fps: 10 }).attach(view.webContents);
+  Draggable.create(window, { selector: '.drag-2', fps: 10, maximize: true }).attach(view.webContents);
   if (dragHandler !== Draggable.from(window)) {
     window.destroy();
     throw new Error('attach did not return the Draggable instance');
