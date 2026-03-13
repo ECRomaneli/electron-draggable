@@ -46,7 +46,6 @@ type MouseHandler = (event: Event, mouse: Electron.MouseInputEvent) => void;
 type DraggableWindow = BaseWindow & { __wdrag__?: Draggable };
 
 export class Draggable {
-  private static readonly TRUE_PROMISE = Promise.resolve(true);
   private static readonly CATCH_FALSE = () => false;
   private readonly optionsByWebContents = new Map<WebContents, InternalDragOptions>();
   private readonly options: InternalDragOptions;
