@@ -320,7 +320,6 @@ export class Draggable {
     this.window!.isMaximized() ? this.window!.unmaximize() : this.window!.maximize();
   }
 
-  // eslint-disable-next-line @stylistic/max-len
   private static isDraggable(webContents: WebContents, point: Point, options: InternalDragOptions): boolean | Promise<boolean> {
     if (options.region && !Draggable.isDraggingRegion(options.region, point)) { return false; }
 
