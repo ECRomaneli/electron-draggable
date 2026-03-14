@@ -230,27 +230,33 @@ export class Draggable {
 
   private createEventHandler(wc: WebContents): MouseHandler {
     const dragState: DragState = { x0: 0, y0: 0, x: 0, y: 0 };
+    let isDraggable: Promise<boolean> | boolean;
 
     return (e, input) => {
       // If not left button, stop dragging
       if (input.button !== 'left') {
-        if (dragState.interval) {
-          clearInterval(dragState.interval);
+        if (dragState.interval !== void 0) {
+          console.debug('Stopping drag due to non-left button event');
+          dragState.interval !== null && clearInterval(dragState.interval);
           dragState.interval = undefined;
         }
         return;
       }
 
-      // Early return: Prevent dragging when maximized (except for double-click)
-      if (this.window!.isMaximized() && input.clickCount !== 2) { return; }
-
       // If already dragging, handle mouse move and stop conditions
       if (dragState.interval !== void 0) {
+
+        // Early return: Prevent dragging when maximized (except for double-click)
+        if (this.window!.isMaximized() && input.clickCount !== 2) {
+          console.debug('Ignoring drag event because window is maximized');
+          return;
+        }
 
         // Handle mouse move events, set up interval to update position
         if (input.type === 'mouseMove') {
           e.preventDefault();
           if (dragState.interval === null) {
+            console.debug('Dragging started');
             const options = this.optionsByWebContents.get(wc)!;
             dragState.interval = setInterval(() => this.updatePosition(dragState), options.intervalDelay);
           }
@@ -259,10 +265,10 @@ export class Draggable {
 
         // Stop dragging on any other event, except for mouseLeave (which triggers when moving too fast)
         if (input.type !== 'mouseLeave') {
+          console.debug('Dragging stopped due to event:', input.type);
           dragState.interval && clearInterval(dragState.interval);
           dragState.interval = undefined;
         }
-        return;
       }
 
       // Handle mouse down (only if not already dragging)
@@ -275,28 +281,27 @@ export class Draggable {
         // is used, a mouseUp could arrive before resolution; in that case, the next mouseDown
         // will naturally clean up via the interval guard above.
         if (input.clickCount === 1) {
-          const isDraggable = Draggable.isDraggable(wc, input, options);
+          isDraggable = Draggable.isDraggable(wc, input, options);
           if (isDraggable === false) { return; }
-          this.setInitialPosition(dragState); // Not using input.x/y because of inconsistent values
-
+           // Not using input.x/y because of inconsistent values
+          this.setInitialPosition(dragState);
           if (isDraggable === true) { dragState.interval = null; return; }
-          (async () => await isDraggable && (dragState.interval = null))();
+          isDraggable.then(d => d && (dragState.interval = null));
           return;
         }
 
         // Handle double-click to maximize/unmaximize
         if (input.clickCount === 2 && options.maximize) {
-          const isDraggable = Draggable.isDraggable(wc, input, options);
           if (isDraggable === false) { return; }
-          e.preventDefault();
-          if (isDraggable === true) { this.toggleMaximize(); return; }
-          (async () => await isDraggable && this.toggleMaximize())();
+          if (isDraggable === true) { e.preventDefault(); this.toggleMaximize(); return; }
+          isDraggable.then(d => d && (e.preventDefault(), this.toggleMaximize()));
         }
       }
     };
   }
 
   private setInitialPosition(dragState: DragState) {
+    console.debug('Setting initial drag position');
     const winPos = this.window!.getPosition();
     const mousePos = screen.getCursorScreenPoint();
     dragState.x0 = mousePos.x - winPos[0];
@@ -311,6 +316,7 @@ export class Draggable {
   }
 
   private toggleMaximize() {
+    console.debug('Toggling maximize');
     this.window!.isMaximized() ? this.window!.unmaximize() : this.window!.maximize();
   }
 
@@ -330,8 +336,8 @@ export class Draggable {
   }
 
   private static isDraggingRegion(region: Partial<Rectangle>, point: Point): boolean {
-    return (region.width === void 0 || point.x <= region.width)
-        && (region.height === void 0 || point.y <= region.height) 
+    return (region.width === void 0 || point.x <= (region.x ?? 0) + region.width)
+        && (region.height === void 0 || point.y <= (region.y ?? 0) + region.height) 
         && (region.x === void 0 || point.x >= region.x)
         && (region.y === void 0 || point.y >= region.y);
   }
@@ -352,8 +358,7 @@ export class Draggable {
     options.intervalDelay = Math.floor(1000 / options.fps);
   }
 
-  private static async closest(webContents: WebContents, p: Point, selector: string, negate?: true): Promise<boolean> {
-    // eslint-disable-next-line @stylistic/max-len
-    return await webContents.executeJavaScript(`${negate ? '!' : '!!'}document.elementFromPoint(${p.x}, ${p.y})?.closest(${selector})`).catch(Draggable.CATCH_FALSE);
+  private static closest(webContents: WebContents, p: Point, selector: string, negate?: true): Promise<boolean> {
+    return webContents.executeJavaScript(`${negate ? '!' : '!!'}document.elementFromPoint(${p.x}, ${p.y})?.closest(${selector})`).catch(Draggable.CATCH_FALSE);
   }
 }

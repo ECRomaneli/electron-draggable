@@ -19,8 +19,8 @@ function setupWindow() {
   window.contentView.addChildView(view);
   view.setBounds({ x: 0, y: 0, width: 800, height: 600 });
   view.webContents.loadFile(`${__dirname}/sample.html`);
-  const dragHandler = Draggable.from(window, { dragZone: { height: 100 } }).attach(view.webContents, { exclude: '.not-drag-1, button'});
-  Draggable.create(window, { selector: '.drag-2', fps: 10, maximize: true }).attach(view.webContents);
+  const dragHandler = Draggable.from(window, { region: { height: 100 }, maximize: true }).attach(view.webContents, { exclude: '.not-drag-1, button'});
+  Draggable.create(window, { selector: '.drag-2', fps: 10 }).attach(view.webContents);
   if (dragHandler !== Draggable.from(window)) {
     window.destroy();
     throw new Error('attach did not return the Draggable instance');

@@ -84,9 +84,51 @@ Each instance independently manages its own drag configuration and WebContents a
 | `exclude` | `string` | Disabled | CSS selector for elements that should **NOT** trigger drag. **Exclusive** with `selector`. |
 | `maximize` | `boolean` | Disabled | Enable double-click to maximize/unmaximize. |
 | `fps` | `number` | Screen refresh rate | Frames per second for drag position updates. |
-| `attachOnInit` | `boolean` | `true` | If true, auto-attach the `BrowserWindow.webContents` on initialization. |
+| `attachOnInit` | `boolean` | Enabled | If true, auto-attach the `BrowserWindow.webContents` on initialization. |
 
 > **Note:** `selector` and `exclude` are mutually exclusive. Use `selector` to whitelist draggable areas, or `exclude` to blacklist non-draggable elements within the drag region.
+
+#### Region
+
+The `region` option defines draggable bounds using up to 4 independent thresholds. Only specified attributes are checked — omitted ones impose no constraint:
+
+| Attribute | Constraint | Default |
+|-----------|-----------|---------|
+| `x` | Drag only when cursor is **at or after** `x` px from the left | `0` (no left bound) |
+| `y` | Drag only when cursor is **at or after** `y` px from the top | `0` (no top bound) |
+| `width` | Drag only within `width` px **after** `x` | `∞` (no right bound) |
+| `height` | Drag only within `height` px **after** `y` | `∞` (no bottom bound) |
+
+```
+        x     x + width
+        ┬        ┬
+ ┌──────┼────────┼──────┐
+ │ 0,0  │        │      │
+ │      │        │      │
+ │      ░░░░░░░░░░──────┼─┤ y
+ │      ░░ DRAG ░░      │
+ │      ░░ ZONE ░░      │
+ │      ░░░░░░░░░░──────┼─┤ y + height
+ │                      │
+ │                      │
+ └──────────────────────┘
+```
+
+**Examples:**
+
+```js
+// Title bar: top 40px
+{ height: 40 }
+
+// Sidebar handle: left 8px
+{ width: 8 }
+
+// Custom band: between 50px and 100px from top
+{ y: 50, height: 100 }
+
+// Scoped box: specific region
+{ x: 100, y: 50, width: 300, height: 150 }
+```
 
 ### Attaching and Detaching WebContents
 

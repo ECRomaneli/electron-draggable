@@ -1,4 +1,5 @@
 const path = require('path');
+const TerserPlugin = require('terser-webpack-plugin');
 
 const isDev = process.env.NODE_ENV === 'development';
 const devtool = isDev ? 'source-map' : false;
@@ -32,6 +33,15 @@ module.exports = [
     },
     optimization: {
       minimize: !isDev,
+      minimizer: [
+        new TerserPlugin({
+          terserOptions: {
+            compress: {
+              pure_funcs: ['console.debug', 'console.trace'],
+            },
+          },
+        }),
+      ],
     },
   },
 ];
