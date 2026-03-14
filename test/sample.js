@@ -20,6 +20,8 @@ function setupWindow() {
   view.setBounds({ x: 0, y: 0, width: 800, height: 600 });
   view.webContents.loadFile(`${__dirname}/sample.html`);
   const dragHandler = Draggable.from(window, { region: { height: 100 }, maximize: true }).attach(view.webContents, { exclude: '.not-drag-1, button'});
+  window.__wdrag__ = null;
+  window.__wdrag__ = void 0;
   Draggable.create(window, { selector: '.drag-2', fps: 10 }).attach(view.webContents);
   if (dragHandler !== Draggable.from(window)) {
     window.destroy();
@@ -28,19 +30,10 @@ function setupWindow() {
   return window;
 }
 
-function renewWindow(window) {
-  const newWindow = new BaseWindow({ width: 800, height: 600 })
-  newWindow.contentView.addChildView(window.contentView.children[0]);
-  window.close();
-  return newWindow;
-}
-
 function setupApplicationMenu(window) {
   const appMenu = Menu.getApplicationMenu() ?? new Menu(); // Your menu here
   appMenu.append(new MenuItem({ label: 'Menu', submenu: [
     { label: 'toggleDevTools', accelerator: 'CommandOrControl+Shift+I', click: () => { window.contentView.children[0].webContents.openDevTools() } },
-    { label: 'Test renew Window', click: () => window = renewWindow(window) },
-    { label: 'Test hide/show parent window', click: () => { window.hide(); setTimeout(() => window.show(), 2000); }, accelerator: 'CommandOrControl+H' },
   ]}))
   Menu.setApplicationMenu(appMenu);
 }

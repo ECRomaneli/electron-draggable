@@ -43,9 +43,10 @@ interface DragState {
 
 type MouseHandler = (event: Event, mouse: Electron.MouseInputEvent) => void;
 
-type DraggableWindow = BaseWindow & { __wdrag__?: Draggable };
+type DraggableWindow = BaseWindow & { readonly __wdrag__?: Draggable };
 
 export class Draggable {
+  private static readonly DRAG_WINDOW_PROP = '__wdrag__';
   private static readonly CATCH_FALSE = () => false;
   private readonly optionsByWebContents = new Map<WebContents, InternalDragOptions>();
   private readonly options: InternalDragOptions;
@@ -69,7 +70,8 @@ export class Draggable {
   public static from(window: DraggableWindow, options?: DragOptions): Draggable {
     if (window.__wdrag__) { return window.__wdrag__; }
     const instance = new Draggable(window, options);
-    return window.__wdrag__ = instance;
+    Draggable.setWindowRef(window, instance);
+    return instance;
   }
 
   /**
@@ -173,7 +175,7 @@ export class Draggable {
     if (!this.window) { return this; }
     this.detachAll();
     if (this.window.__wdrag__ === this) {
-      this.window.__wdrag__ = undefined;
+      Draggable.setWindowRef(this.window, undefined);
     }
     this.window = undefined;
     return this;
@@ -220,8 +222,8 @@ export class Draggable {
     this.window.addListener('closed', this.onClosed);
     if (oldWin) {
       if (oldWin.__wdrag__ === this) {
-        oldWin.__wdrag__ = undefined; // Clear old reference 
-        this.window.__wdrag__ = this; // Set new reference
+        Draggable.setWindowRef(oldWin, undefined);
+        Draggable.setWindowRef(this.window, this);
       }
       oldWin.removeListener('closed', this.onClosed);
     }
@@ -359,5 +361,9 @@ export class Draggable {
 
   private static closest(webContents: WebContents, p: Point, selector: string, negate?: true): Promise<boolean> {
     return webContents.executeJavaScript(`${negate ? '!' : '!!'}document.elementFromPoint(${p.x}, ${p.y})?.closest(${selector})`).catch(Draggable.CATCH_FALSE);
+  }
+
+  private static setWindowRef(window: DraggableWindow, instance: Draggable | undefined): void {
+    Object.defineProperty(window, Draggable.DRAG_WINDOW_PROP, { value: instance, configurable: true, writable: false });
   }
 }
