@@ -123,7 +123,7 @@ The `region` option defines draggable bounds using up to 4 independent threshold
 // Sidebar handle: left 8px
 { width: 8 }
 
-// Custom band: between 50px and 100px from top
+// Custom band: between 50px and 150px from top
 { y: 50, height: 100 }
 
 // Scoped box: specific region
