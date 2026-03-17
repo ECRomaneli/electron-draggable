@@ -21,7 +21,7 @@ export interface DragOptions {
   /** Enable double-click to maximize/unmaximize. */
   maximize?: boolean;
   /** Frames per second for drag updates. Default: Screen refresh rate */
-  fps?: number;
+  fps?: number | null;
   /** If true, auto-attach the window's webContents on initialization. Default: true */
   attachOnInit?: boolean;
 
@@ -110,6 +110,7 @@ export class Draggable {
   private constructor(window: DraggableWindow, options: DragOptions = {}) {
     this.setWindow(window);
     this.options = options;
+    if (options.fps === undefined) { options.fps = null }
     Draggable.normalizeOptions(this.options);
 
     // Auto-attach for BrowserWindow (has its own webContents)
@@ -346,17 +347,18 @@ export class Draggable {
   private static normalizeOptions(options: InternalDragOptions): void {
     if (options.selector) { options.selector = JSON.stringify(options.selector); }
     if (options.exclude) { options.exclude = JSON.stringify(options.exclude); }
-    if (!options.fps || options.fps < 0) {
-      try {
+    if (options.fps === null || (options.fps && options.fps < 0)) { options.fps = Draggable.getDefaultFps(); }
+    if (options.fps !== undefined) { options.intervalDelay = Math.floor(1000 / options.fps); }
+  }
+
+  private static getDefaultFps(): number {
+    try {
         const refreshRate = screen.getAllDisplays().reduce((max, d) => Math.max(max, d.displayFrequency), 0);
-        options.fps = refreshRate;
+        return refreshRate;
       } catch (e) {
         console.warn('Failed to get display refresh rate, defaulting to 60fps', e);
-      } finally {
-        options.fps = options.fps || 60;
+        return 60;
       }
-    }
-    options.intervalDelay = Math.floor(1000 / options.fps);
   }
 
   private static closest(webContents: WebContents, p: Point, selector: string, negate?: true): Promise<boolean> {
