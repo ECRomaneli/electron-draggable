@@ -240,20 +240,13 @@ export class Draggable {
       if (input.button !== 'left') {
         if (dragState.interval !== void 0) {
           console.debug('Stopping drag due to non-left button event');
-          dragState.interval !== null && clearInterval(dragState.interval);
-          dragState.interval = undefined;
+          this.stopDragging(dragState);
         }
         return;
       }
 
       // If already dragging, handle mouse move and stop conditions
       if (dragState.interval !== void 0) {
-
-        // Early return: Prevent dragging when maximized (except for double-click)
-        if (this.window!.isMaximized() && input.clickCount !== 2) {
-          console.debug('Ignoring drag event because window is maximized');
-          return;
-        }
 
         // Handle mouse move events, set up interval to update position
         if (input.type === 'mouseMove') {
@@ -269,8 +262,7 @@ export class Draggable {
         // Stop dragging on any other event, except for mouseLeave (which triggers when moving too fast)
         if (input.type !== 'mouseLeave') {
           console.debug('Dragging stopped due to event:', input.type);
-          dragState.interval && clearInterval(dragState.interval);
-          dragState.interval = undefined;
+          this.stopDragging(dragState);
         }
       }
 
@@ -285,6 +277,10 @@ export class Draggable {
         // will naturally clean up via the interval guard above.
         if (input.clickCount === 1) {
           isDraggable = Draggable.isDraggable(wc, input, options);
+          if (this.window!.isMaximized()) {
+            console.debug('Ignoring drag event because window is maximized');
+            return;
+          }
           if (isDraggable === false) { return; }
            // Not using input.x/y because of inconsistent values
           this.setInitialPosition(dragState);
@@ -301,6 +297,15 @@ export class Draggable {
         }
       }
     };
+  }
+
+  private stopDragging(dragState: DragState) {
+    console.debug('Stop dragging');
+    if (dragState.interval) {
+      clearInterval(dragState.interval);
+      this.updatePosition(dragState);
+    }
+    dragState.interval = undefined;
   }
 
   private setInitialPosition(dragState: DragState) {
