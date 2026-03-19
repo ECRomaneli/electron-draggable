@@ -14,6 +14,8 @@ export interface DragOptions {
    * region: { y: 50, height: 100 } // Draggable between 50px and 150px from top
    */
   region?: Partial<Rectangle>;
+  /** Mouse button that triggers the drag. Default: 'left' */
+  button?: 'left' | 'right' | 'middle';
   /** CSS selector that marks elements as drag handles. Exclusive with `exclude`. */
   selector?: string;
   /** CSS selector for elements that should NOT trigger drag. Exclusive with `selector`. */
@@ -111,6 +113,7 @@ export class Draggable {
     this.setWindow(window);
     this.options = options;
     if (options.fps === undefined) { options.fps = null }
+    if (options.button === undefined) { options.button = 'left'; }
     Draggable.normalizeOptions(this.options);
 
     // Auto-attach for BrowserWindow (has its own webContents)
@@ -236,8 +239,10 @@ export class Draggable {
     let isDraggable: Promise<boolean> | boolean;
 
     return (e, input) => {
+      const options = this.optionsByWebContents.get(wc)!;
+      
       // If not left button, stop dragging
-      if (input.button !== 'left') {
+      if (input.button !== options.button) {
         if (dragState.interval !== void 0) {
           console.debug('Stopping drag due to non-left button event');
           this.stopDragging(dragState);
@@ -253,7 +258,6 @@ export class Draggable {
           e.preventDefault();
           if (dragState.interval === null) {
             console.debug('Dragging started');
-            const options = this.optionsByWebContents.get(wc)!;
             dragState.interval = setInterval(() => this.updatePosition(dragState), options.intervalDelay);
           }
           return;
@@ -268,8 +272,6 @@ export class Draggable {
 
       // Handle mouse down (only if not already dragging)
       if (input.type === 'mouseDown') {
-        const options = this.optionsByWebContents.get(wc)!;
-
         // Start dragging on mouse down (only if not already dragging).
         // Note: isDraggable may be async (executeJavaScript ~1-5ms). The drag begins after
         // resolution, using the cursor position at that time. If an extremely slow provider
