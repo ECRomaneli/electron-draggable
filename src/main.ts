@@ -252,10 +252,10 @@ export class Draggable {
 
       // If already dragging, handle mouse move and stop conditions
       if (dragState.interval !== void 0) {
+        e.preventDefault();
 
         // Handle mouse move events, set up interval to update position
         if (input.type === 'mouseMove') {
-          e.preventDefault();
           if (dragState.interval === null) {
             console.debug('Dragging started');
             dragState.interval = setInterval(() => this.updatePosition(dragState), options.intervalDelay);
