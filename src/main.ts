@@ -30,20 +30,13 @@ export interface DragOptions {
 }
 
 interface InternalDragOptions extends DragOptions {
-  eventHandler?: MouseHandler;
   destroyListener?: () => void;
-  intervalDelay?: number;
-}
-
-interface DragState {
+  isDraggable?: Promise<boolean> | boolean;
   interval?: NodeJS.Timeout | null;
-  x0: number;
-  y0: number;
-  x: number;
-  y: number;
+  intervalDelay?: number;
+  x0?: number;
+  y0?: number;
 }
-
-type MouseHandler = (event: Event, mouse: Electron.MouseInputEvent) => void;
 
 type DraggableWindow = BaseWindow & { readonly __wdrag__?: Draggable };
 
@@ -52,7 +45,8 @@ export class Draggable {
   private static readonly CATCH_FALSE = () => false;
   private readonly optionsByWebContents = new Map<WebContents, InternalDragOptions>();
   private readonly options: InternalDragOptions;
-  private readonly onClosed = () => { this.disable(); };
+  private readonly sharedBeforeMouseEvent: (this: WebContents, event: Event, input: Electron.MouseInputEvent) => void;
+  private readonly onClosed = () => { this.destroy(); };
   private window?: DraggableWindow;
 
   /**
@@ -116,6 +110,11 @@ export class Draggable {
     if (options.button === undefined) { options.button = 'left'; }
     Draggable.normalizeOptions(this.options);
 
+    const self = this;
+    this.sharedBeforeMouseEvent = function(this: WebContents, e: Event, input: Electron.MouseInputEvent) {
+      self.handleBeforeMouseEvent(this, e, input);
+    };
+
     // Auto-attach for BrowserWindow (has its own webContents)
     if (this.options.attachOnInit !== false && window instanceof BrowserWindow) {
       this.attach(window.webContents);
@@ -129,7 +128,7 @@ export class Draggable {
     }
 
     if (this.optionsByWebContents.has(webContents)) {
-      overrideOptions && this.updateOptions(webContents, overrideOptions);
+      overrideOptions && this.updateOptions(webContents, overrideOptions); 
       return this;
     }
 
@@ -143,11 +142,10 @@ export class Draggable {
       options = { ...this.options };
     }
 
-    options.eventHandler = this.createEventHandler(webContents);
     options.destroyListener = () => this.detach(webContents);
 
     this.optionsByWebContents.set(webContents, options);
-    webContents.on('before-mouse-event', options.eventHandler);
+    webContents.on('before-mouse-event', this.sharedBeforeMouseEvent);
     webContents.once('destroyed', options.destroyListener);
     return this;
   }
@@ -156,7 +154,7 @@ export class Draggable {
   public detach(webContents: WebContents): this {
     const options = this.optionsByWebContents.get(webContents);
     if (options) {
-      webContents.removeListener('before-mouse-event', options.eventHandler!);
+      webContents.removeListener('before-mouse-event', this.sharedBeforeMouseEvent);
       webContents.removeListener('destroyed', options.destroyListener!);
       this.optionsByWebContents.delete(webContents);
     }
@@ -175,7 +173,7 @@ export class Draggable {
    * Disable drag for all registered WebContents and release the window reference.
    * @remarks After calling this method, the instance is dead and must not be reused.
    */
-  public disable(): this {
+  public destroy(): this {
     if (!this.window) { return this; }
     this.detachAll();
     if (this.window.__wdrag__ === this) {
@@ -183,6 +181,14 @@ export class Draggable {
     }
     this.window = undefined;
     return this;
+  }
+
+  /**
+   * @deprecated Use {@link Draggable.destroy} instead.
+   * @see {@link Draggable.destroy}
+   */
+  public disable(): this {
+    return this.destroy();
   }
 
   /**
@@ -234,77 +240,72 @@ export class Draggable {
     return this;
   }
 
-  private createEventHandler(wc: WebContents): MouseHandler {
-    const dragState: DragState = { x0: 0, y0: 0, x: 0, y: 0 };
-    let isDraggable: Promise<boolean> | boolean;
+  private handleBeforeMouseEvent(wc: WebContents, e: Event, input: Electron.MouseInputEvent): void {
+    const options = this.optionsByWebContents.get(wc)!;
 
-    return (e, input) => {
-      const options = this.optionsByWebContents.get(wc)!;
-      
-      // If not the configured button, stop dragging
-      if (input.button !== options.button) {
-        if (dragState.interval !== void 0) {
-          console.debug('Stopping drag due to button mismatch');
-          this.stopDragging(dragState);
+    // If not the configured button, stop dragging
+    if (input.button !== options.button) {
+      if (options.interval !== void 0) {
+        console.debug('Stopping drag due to button mismatch');
+        this.stopDragging(options);
+      }
+      return;
+    }
+
+    // If already dragging, handle mouse move and stop conditions
+    if (options.interval !== void 0) {
+
+      // Handle mouse move events, set up interval to update position
+      if (input.type === 'mouseMove') {
+        e.preventDefault();
+        if (options.interval === null) {
+          console.debug('Dragging started');
+          options.interval = setInterval(() => this.updatePosition(options), options.intervalDelay);
         }
         return;
       }
 
-      // If already dragging, handle mouse move and stop conditions
-      if (dragState.interval !== void 0) {
+      // Do not prevent defaults for non-move events to allow clicks, but stop dragging.
+      options.interval !== null && e.preventDefault();
 
-        // Handle mouse move events, set up interval to update position
-        if (input.type === 'mouseMove') {
-          e.preventDefault();
-          if (dragState.interval === null) {
-            console.debug('Dragging started');
-            dragState.interval = setInterval(() => this.updatePosition(dragState), options.intervalDelay);
-          }
+      // Stop dragging on any other event, except for mouseLeave (which triggers when moving too fast)
+      if (input.type !== 'mouseLeave') {
+        console.debug('Dragging stopped due to event:', input.type);
+        this.stopDragging(options);
+      }
+    }
+
+    // Handle mouse down (only if not already dragging)
+    if (input.type === 'mouseDown') {
+      // Start dragging on mouse down (only if not already dragging).
+      // Note: isDraggable may be async (executeJavaScript ~1-5ms). The drag begins after
+      // resolution, using the cursor position at that time. If an extremely slow provider
+      // is used, a mouseUp could arrive before resolution; in that case, the next mouseDown
+      // will naturally clean up via the interval guard above.
+      if (input.clickCount === 1) {
+        options.isDraggable = Draggable.isDraggable(wc, input, options);
+        if (this.window!.isMaximized()) {
+          console.debug('Ignoring drag event because window is maximized');
           return;
         }
-
-        // Do not prevent defaults for non-move events to allow clicks, but stop dragging.
-        dragState.interval !== null && e.preventDefault();
-
-        // Stop dragging on any other event, except for mouseLeave (which triggers when moving too fast)
-        if (input.type !== 'mouseLeave') {
-          console.debug('Dragging stopped due to event:', input.type);
-          this.stopDragging(dragState);
-        }
+        if (options.isDraggable === false) { return; }
+         // Not using input.x/y because of inconsistent values
+        this.setInitialPosition(options);
+        if (options.isDraggable === true) { options.interval = null; return; }
+        options.isDraggable.then(d => d && (options.interval = null));
+        return;
       }
 
-      // Handle mouse down (only if not already dragging)
-      if (input.type === 'mouseDown') {
-        // Start dragging on mouse down (only if not already dragging).
-        // Note: isDraggable may be async (executeJavaScript ~1-5ms). The drag begins after
-        // resolution, using the cursor position at that time. If an extremely slow provider
-        // is used, a mouseUp could arrive before resolution; in that case, the next mouseDown
-        // will naturally clean up via the interval guard above.
-        if (input.clickCount === 1) {
-          isDraggable = Draggable.isDraggable(wc, input, options);
-          if (this.window!.isMaximized()) {
-            console.debug('Ignoring drag event because window is maximized');
-            return;
-          }
-          if (isDraggable === false) { return; }
-           // Not using input.x/y because of inconsistent values
-          this.setInitialPosition(dragState);
-          if (isDraggable === true) { dragState.interval = null; return; }
-          isDraggable.then(d => d && (dragState.interval = null));
-          return;
-        }
-
-        // Handle double-click to maximize/unmaximize
-        if (input.clickCount === 2 && options.maximize) {
-          if (isDraggable === false) { return; }
-          if (isDraggable === true) { e.preventDefault(); this.toggleMaximize(); return; }
-          isDraggable.then(d => d && (e.preventDefault(), this.toggleMaximize()));
-        }
+      // Handle double-click to maximize/unmaximize
+      if (input.clickCount === 2 && options.maximize) {
+        if (options.isDraggable === false) { return; }
+        if (options.isDraggable === true) { e.preventDefault(); this.toggleMaximize(); return; }
+        options.isDraggable!.then(d => d && (e.preventDefault(), this.toggleMaximize()));
       }
-    };
+    }
   }
 
-  private stopDragging(dragState: DragState) {
+  private stopDragging(dragState: InternalDragOptions) {
     console.debug('Stop dragging');
     if (dragState.interval) {
       clearInterval(dragState.interval);
@@ -313,7 +314,7 @@ export class Draggable {
     dragState.interval = undefined;
   }
 
-  private setInitialPosition(dragState: DragState) {
+  private setInitialPosition(dragState: InternalDragOptions) {
     console.debug('Setting initial drag position');
     const winPos = this.window!.getPosition();
     const mousePos = screen.getCursorScreenPoint();
@@ -321,11 +322,9 @@ export class Draggable {
     dragState.y0 = mousePos.y - winPos[1];
   }
 
-  private updatePosition(dragState: DragState) {
+  private updatePosition(dragState: InternalDragOptions) {
     const mousePos = screen.getCursorScreenPoint();
-    dragState.x = mousePos.x - dragState.x0;
-    dragState.y = mousePos.y - dragState.y0;
-    this.window!.setPosition(dragState.x, dragState.y);
+    this.window!.setPosition(mousePos.x - dragState.x0!, mousePos.y - dragState.y0!);
   }
 
   private toggleMaximize() {
