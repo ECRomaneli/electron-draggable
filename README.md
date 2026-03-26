@@ -82,6 +82,7 @@ Each instance independently manages its own drag configuration and WebContents a
 | `region` | `Partial<Rectangle>` | Entire Window | Restricts dragging to a region. Only specified bounds are checked (e.g., `{ height: 40 }` for the top 40px). |
 | `selector` | `string` | Disabled | CSS selector that marks elements as drag handles. **Exclusive** with `exclude`. |
 | `exclude` | `string` | Disabled | CSS selector for elements that should **NOT** trigger drag. **Exclusive** with `selector`. |
+| `button` | `'left' | 'right' | 'middle'` | `'left'` | Mouse button that triggers the drag. Default: `'left'`. |
 | `maximize` | `boolean` | Disabled | Enable double-click to maximize/unmaximize. |
 | `fps` | `number` | Screen refresh rate | Frames per second for drag position updates. |
 | `attachOnInit` | `boolean` | Enabled | If true, auto-attach the `BrowserWindow.webContents` on initialization. |
