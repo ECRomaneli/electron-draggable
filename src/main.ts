@@ -252,16 +252,19 @@ export class Draggable {
 
       // If already dragging, handle mouse move and stop conditions
       if (dragState.interval !== void 0) {
-        e.preventDefault();
 
         // Handle mouse move events, set up interval to update position
         if (input.type === 'mouseMove') {
+          e.preventDefault();
           if (dragState.interval === null) {
             console.debug('Dragging started');
             dragState.interval = setInterval(() => this.updatePosition(dragState), options.intervalDelay);
           }
           return;
         }
+
+        // Do not prevent defaults for non-move events to allow clicks, but stop dragging.
+        dragState.interval !== null && e.preventDefault();
 
         // Stop dragging on any other event, except for mouseLeave (which triggers when moving too fast)
         if (input.type !== 'mouseLeave') {
