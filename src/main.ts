@@ -241,10 +241,10 @@ export class Draggable {
     return (e, input) => {
       const options = this.optionsByWebContents.get(wc)!;
       
-      // If not left button, stop dragging
+      // If not the configured button, stop dragging
       if (input.button !== options.button) {
         if (dragState.interval !== void 0) {
-          console.debug('Stopping drag due to non-left button event');
+          console.debug('Stopping drag due to button mismatch');
           this.stopDragging(dragState);
         }
         return;

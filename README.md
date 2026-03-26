@@ -82,12 +82,24 @@ Each instance independently manages its own drag configuration and WebContents a
 | `region` | `Partial<Rectangle>` | Entire Window | Restricts dragging to a region. Only specified bounds are checked (e.g., `{ height: 40 }` for the top 40px). |
 | `selector` | `string` | Disabled | CSS selector that marks elements as drag handles. **Exclusive** with `exclude`. |
 | `exclude` | `string` | Disabled | CSS selector for elements that should **NOT** trigger drag. **Exclusive** with `selector`. |
-| `button` | `'left' | 'right' | 'middle'` | `'left'` | Mouse button that triggers the drag. Default: `'left'`. |
+| `button` | `'left'` \| `'right'` \| `'middle'` | `'left'` | Mouse button that triggers the drag. |
 | `maximize` | `boolean` | Disabled | Enable double-click to maximize/unmaximize. |
 | `fps` | `number` | Screen refresh rate | Frames per second for drag position updates. |
 | `attachOnInit` | `boolean` | Enabled | If true, auto-attach the `BrowserWindow.webContents` on initialization. |
 
 > **Note:** `selector` and `exclude` are mutually exclusive. Use `selector` to whitelist draggable areas, or `exclude` to blacklist non-draggable elements within the drag region.
+
+#### Button
+
+The `button` option specifies which mouse button initiates the drag. Accepted values are `'left'`, `'right'`, and `'middle'`.
+
+```js
+// Drag with right-click (useful when left-click is reserved for other interactions)
+Draggable.from(window, { button: 'right' })
+
+// Drag with middle-click
+Draggable.from(window, { button: 'middle' })
+```
 
 #### Region
 
@@ -129,6 +141,9 @@ The `region` option defines draggable bounds using up to 4 independent threshold
 
 // Scoped box: specific region
 { x: 100, y: 50, width: 300, height: 150 }
+
+// Entire content
+/* empty */
 ```
 
 ### Attaching and Detaching WebContents
@@ -136,7 +151,7 @@ The `region` option defines draggable bounds using up to 4 independent threshold
 For `BaseWindow` setups with multiple `WebContentsView` children, you can manually attach and detach drag sources:
 
 ```js
-const drag = Draggable.from(baseWindow, { region: { height: 100 } })
+const drag = Draggable.from(baseWindow)
 
 // Attach a view's webContents with per-view overrides
 drag.attach(view.webContents, { exclude: '.no-drag, button' })
