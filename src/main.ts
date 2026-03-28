@@ -38,7 +38,10 @@ interface InternalDragOptions extends DragOptions {
   y0?: number;
 }
 
-type DraggableWindow = BaseWindow & { readonly __wdrag__?: Draggable };
+type DraggableWindow = BaseWindow & {
+  readonly __wdrag__?: Draggable,
+  readonly webContents?: WebContents
+};
 
 export class Draggable {
   private static readonly DRAG_WINDOW_PROP = '__wdrag__';
@@ -104,7 +107,6 @@ export class Draggable {
    * @param options Optional drag behavior configuration
    */
   private constructor(window: DraggableWindow, options: DragOptions = {}) {
-    this.setWindow(window);
     this.options = options;
     if (options.fps === undefined) { options.fps = null }
     if (options.button === undefined) { options.button = 'left'; }
@@ -114,11 +116,8 @@ export class Draggable {
     this.sharedBeforeMouseEvent = function(this: WebContents, e: Event, input: Electron.MouseInputEvent) {
       self.handleBeforeMouseEvent(this, e, input);
     };
-
-    // Auto-attach for BrowserWindow (has its own webContents)
-    if (this.options.attachOnInit !== false && window instanceof BrowserWindow) {
-      this.attach(window.webContents);
-    }
+    
+    this.setWindow(window);
   }
 
   /** Register a WebContents as a drag source for this window. */
@@ -230,11 +229,18 @@ export class Draggable {
     const oldWin = this.window;
     this.window = newWindow;
     this.window.addListener('closed', this.onClosed);
+
+    // Auto-attach for BrowserWindow (has its own webContents)
+    if (this.options.attachOnInit !== false && newWindow.webContents) {
+      this.attach(newWindow.webContents);
+    }
+    
     if (oldWin) {
       if (oldWin.__wdrag__ === this) {
         Draggable.setWindowRef(oldWin, undefined);
         Draggable.setWindowRef(this.window, this);
       }
+      oldWin.webContents && this.detach(oldWin.webContents);
       oldWin.removeListener('closed', this.onClosed);
     }
     return this;
@@ -356,7 +362,7 @@ export class Draggable {
   private static normalizeOptions(options: InternalDragOptions): void {
     if (options.selector) { options.selector = JSON.stringify(options.selector); }
     if (options.exclude) { options.exclude = JSON.stringify(options.exclude); }
-    if (options.fps === null || (options.fps && options.fps < 0)) { options.fps = Draggable.getDefaultFps(); }
+    if (options.fps === null || (options.fps && options.fps <= 0)) { options.fps = Draggable.getDefaultFps(); }
     if (options.fps !== undefined) { options.intervalDelay = Math.floor(1000 / options.fps); }
   }
 
