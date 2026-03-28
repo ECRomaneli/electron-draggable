@@ -177,15 +177,15 @@ drag.updateOptions({ fps: 120, maximize: true })
 drag.updateOptions(view.webContents, { region: { height: 60 } })
 ```
 
-### Disabling Drag
+### Destroying Drag
 
 To permanently disable drag and release all references:
 
 ```js
-drag.disable()
+drag.destroy()
 ```
 
-After calling `disable`, the instance is dead and must not be reused. The drag is also automatically disabled when the window is closed.
+After calling `destroy`, the instance is dead and must not be reused. The drag is also automatically disabled when the window is closed.
 
 ### Retargeting a Window
 
@@ -295,7 +295,7 @@ detachAll()
  * Disable drag for all registered WebContents and release the window reference.
  * After calling this method, the instance is dead and must not be reused.
  */
-disable()
+destroy()
 
 /**
  * Update drag options for all registered WebContents.
