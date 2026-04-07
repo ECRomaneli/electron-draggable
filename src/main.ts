@@ -30,12 +30,9 @@ export interface DragOptions {
 }
 
 interface InternalDragOptions extends DragOptions {
-  destroyListener?: () => void;
   isDraggable?: Promise<boolean> | boolean;
   interval?: NodeJS.Timeout | null;
   intervalDelay?: number;
-  x0?: number;
-  y0?: number;
 }
 
 type DraggableWindow = BaseWindow & {
@@ -49,8 +46,10 @@ export class Draggable {
   private readonly optionsByWebContents = new Map<WebContents, InternalDragOptions>();
   private readonly options: InternalDragOptions;
   private readonly sharedBeforeMouseEvent: (this: WebContents, event: Event, input: Electron.MouseInputEvent) => void;
-  private readonly onClosed = () => { this.destroy(); };
+  private readonly onceWebContentsDestroyed: (this: WebContents) => void;
+  private readonly onceWindowClosed = () => this.destroy();
   private window?: DraggableWindow;
+  private offset = { x: 0, y: 0 };
 
   /**
    * Get or create a WindowDrag instance for the given window.
@@ -116,6 +115,9 @@ export class Draggable {
     this.sharedBeforeMouseEvent = function(this: WebContents, e: Event, input: Electron.MouseInputEvent) {
       self.handleBeforeMouseEvent(this, e, input);
     };
+    this.onceWebContentsDestroyed = function(this: WebContents) {
+      self.detach(this);
+    };
     
     this.setWindow(window);
   }
@@ -141,11 +143,9 @@ export class Draggable {
       options = { ...this.options };
     }
 
-    options.destroyListener = () => this.detach(webContents);
-
     this.optionsByWebContents.set(webContents, options);
     webContents.on('before-mouse-event', this.sharedBeforeMouseEvent);
-    webContents.once('destroyed', options.destroyListener);
+    webContents.once('destroyed', this.onceWebContentsDestroyed);
     return this;
   }
 
@@ -153,8 +153,9 @@ export class Draggable {
   public detach(webContents: WebContents): this {
     const options = this.optionsByWebContents.get(webContents);
     if (options) {
-      webContents.removeListener('before-mouse-event', this.sharedBeforeMouseEvent);
-      webContents.removeListener('destroyed', options.destroyListener!);
+      webContents.off('before-mouse-event', this.sharedBeforeMouseEvent);
+      webContents.off('destroyed', this.onceWebContentsDestroyed);
+      this.stopDragging(options);
       this.optionsByWebContents.delete(webContents);
     }
     return this;
@@ -178,6 +179,7 @@ export class Draggable {
     if (this.window.__wdrag__ === this) {
       Draggable.setWindowRef(this.window, undefined);
     }
+    this.window!.off('closed', this.onceWindowClosed);
     this.window = undefined;
     return this;
   }
@@ -228,7 +230,7 @@ export class Draggable {
   public setWindow(newWindow: DraggableWindow): this {
     const oldWin = this.window;
     this.window = newWindow;
-    this.window.addListener('closed', this.onClosed);
+    this.window.once('closed', this.onceWindowClosed);
 
     // Auto-attach for BrowserWindow (has its own webContents)
     if (this.options.attachOnInit !== false && newWindow.webContents) {
@@ -241,7 +243,7 @@ export class Draggable {
         Draggable.setWindowRef(this.window, this);
       }
       oldWin.webContents && this.detach(oldWin.webContents);
-      oldWin.removeListener('closed', this.onClosed);
+      oldWin.off('closed', this.onceWindowClosed);
     }
     return this;
   }
@@ -265,8 +267,7 @@ export class Draggable {
       if (input.type === 'mouseMove') {
         e.preventDefault();
         if (options.interval === null) {
-          console.debug('Dragging started');
-          options.interval = setInterval(() => this.updatePosition(options), options.intervalDelay);
+          this.startDragging(options);
         }
         return;
       }
@@ -296,7 +297,7 @@ export class Draggable {
         }
         if (options.isDraggable === false) { return; }
          // Not using input.x/y because of inconsistent values
-        this.setInitialPosition(options);
+        this.updateOffset();
         if (options.isDraggable === true) { options.interval = null; return; }
         options.isDraggable.then(d => d && (options.interval = null));
         return;
@@ -311,26 +312,30 @@ export class Draggable {
     }
   }
 
-  private stopDragging(dragState: InternalDragOptions) {
-    console.debug('Stop dragging');
-    if (dragState.interval) {
-      clearInterval(dragState.interval);
-      this.updatePosition(dragState);
+  private startDragging(options: InternalDragOptions) {
+    console.debug('Dragging started');
+    options.interval = setInterval(() => this.updatePosition(), options.intervalDelay);
+  }
+
+  private stopDragging(options: InternalDragOptions) {
+    if (options.interval) {
+      clearInterval(options.interval);
+      this.updatePosition();
     }
-    dragState.interval = undefined;
+    options.interval = undefined;
+    console.debug('Dragging stopped');
   }
 
-  private setInitialPosition(dragState: InternalDragOptions) {
-    console.debug('Setting initial drag position');
+  private updateOffset(point: Point = screen.getCursorScreenPoint()) {
+    console.debug('Updating drag offset');
     const winPos = this.window!.getPosition();
-    const mousePos = screen.getCursorScreenPoint();
-    dragState.x0 = mousePos.x - winPos[0];
-    dragState.y0 = mousePos.y - winPos[1];
+    this.offset.x = point.x - winPos[0];
+    this.offset.y = point.y - winPos[1];
   }
 
-  private updatePosition(dragState: InternalDragOptions) {
+  private updatePosition() {
     const mousePos = screen.getCursorScreenPoint();
-    this.window!.setPosition(mousePos.x - dragState.x0!, mousePos.y - dragState.y0!);
+    this.window!.setPosition(mousePos.x - this.offset.x, mousePos.y - this.offset.y);
   }
 
   private toggleMaximize() {
