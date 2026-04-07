@@ -48,6 +48,7 @@ export class Draggable {
   private readonly sharedBeforeMouseEvent: (this: WebContents, event: Event, input: Electron.MouseInputEvent) => void;
   private readonly onceWebContentsDestroyed: (this: WebContents) => void;
   private readonly onceWindowClosed = () => this.destroy();
+  private readonly onResizeDuringDrag = () => this.updateOffset();
   private window?: DraggableWindow;
   private offset = { x: 0, y: 0 };
 
@@ -314,6 +315,7 @@ export class Draggable {
 
   private startDragging(options: InternalDragOptions) {
     console.debug('Dragging started');
+    this.window!.on('resize', this.onResizeDuringDrag);
     options.interval = setInterval(() => this.updatePosition(), options.intervalDelay);
   }
 
@@ -322,6 +324,7 @@ export class Draggable {
       clearInterval(options.interval);
       this.updatePosition();
     }
+    this.window!.off('resize', this.onResizeDuringDrag);
     options.interval = undefined;
     console.debug('Dragging stopped');
   }
