@@ -292,10 +292,6 @@ export class Draggable {
       // will naturally clean up via the interval guard above.
       if (input.clickCount === 1) {
         options.isDraggable = Draggable.isDraggable(wc, input, options);
-        if (this.window!.isMaximized()) {
-          console.debug('Ignoring drag event because window is maximized');
-          return;
-        }
         if (options.isDraggable === false) { return; }
          // Not using input.x/y because of inconsistent values
         this.updateOffset();
@@ -314,6 +310,31 @@ export class Draggable {
   }
 
   private startDragging(options: InternalDragOptions) {
+    const bounds = this.window!.getBounds();
+    const normalBounds = this.window!.getNormalBounds();
+    const isSnappedOrMaximized = bounds.x !== normalBounds.x || bounds.y !== normalBounds.y
+        || bounds.width !== normalBounds.width || bounds.height !== normalBounds.height;
+
+    if (isSnappedOrMaximized) {
+      const cursor = screen.getCursorScreenPoint();
+
+      // Calculate mouse position relative to the window size (percentage)
+      const relativeX = (cursor.x - bounds.x) / bounds.width;
+      const relativeY = (cursor.y - bounds.y) / bounds.height;
+
+      console.debug('Window is maximized/snapped, restoring before drag');
+      if (this.window!.isMaximized()) { this.window!.unmaximize(); }
+
+      // Move the window so the cursor is still on the same relative position
+      this.window!.setBounds({
+        x: Math.round(cursor.x - relativeX * normalBounds.width),
+        y: Math.round(cursor.y - relativeY * normalBounds.height),
+        width: normalBounds.width,
+        height: normalBounds.height
+      });
+      this.updateOffset(cursor);
+    }
+
     console.debug('Dragging started');
     this.window!.on('resize', this.onResizeDuringDrag);
     options.interval = setInterval(() => this.updatePosition(), options.intervalDelay);

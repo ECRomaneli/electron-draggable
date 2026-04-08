@@ -18,6 +18,10 @@ function setupWindow() {
   });
   window.contentView.addChildView(view);
   view.setBounds({ x: 0, y: 0, width: 800, height: 600 });
+  window.on('resize', () => {
+    const [width, height] = window.getContentSize();
+    view.setBounds({ x: 0, y: 0, width, height });
+  });
   view.webContents.loadFile(`${__dirname}/sample.html`);
   const dragHandler = Draggable.from(window, { region: { height: 100 }, maximize: true }).attach(view.webContents, { exclude: '.not-drag-1'});
   window.__wdrag__ = null;
