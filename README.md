@@ -80,14 +80,14 @@ Each instance independently manages its own drag configuration and WebContents a
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `region` | `Partial<Rectangle>` | Entire Window | Restricts dragging to a region. Only specified bounds are checked (e.g., `{ height: 40 }` for the top 40px). |
-| `selector` | `string` | Disabled | CSS selector that marks elements as drag handles. **Exclusive** with `exclude`. |
-| `exclude` | `string` | Disabled | CSS selector for elements that should **NOT** trigger drag. **Exclusive** with `selector`. |
+| `selector` | `string` | Disabled | CSS selector that marks elements as drag handles. Can be combined with `exclude`. |
+| `exclude` | `string` | Disabled | CSS selector for elements that should **NOT** trigger drag. Can be combined with `selector`. |
 | `button` | `'left'` \| `'right'` \| `'middle'` | `'left'` | Mouse button that triggers the drag. |
 | `maximize` | `boolean` | Disabled | Enable double-click to maximize/unmaximize. |
 | `fps` | `number` | Screen refresh rate | Frames per second for drag position updates. |
 | `attachOnInit` | `boolean` | Enabled | If true, auto-attach the `BrowserWindow.webContents` on initialization. |
 
-> **Note:** `selector` and `exclude` are mutually exclusive. Use `selector` to whitelist draggable areas, or `exclude` to blacklist non-draggable elements within the drag region.
+> **Note:** `selector` and `exclude` can be used together. Use `selector` to whitelist draggable areas, `exclude` to blacklist non-draggable elements, or both to whitelist a region and carve out exceptions within it.
 
 #### Button
 

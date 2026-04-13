@@ -26,7 +26,7 @@ function setupWindow() {
   const dragHandler = Draggable.from(window, { region: { height: 100 }, maximize: true }).attach(view.webContents, { exclude: '.not-drag-1'});
   window.__wdrag__ = null;
   window.__wdrag__ = void 0;
-  Draggable.create(window, { selector: '.drag-2', fps: 10 }).attach(view.webContents);
+  Draggable.create(window, { selector: '.drag-2', exclude: '.not-drag-2', fps: 10 }).attach(view.webContents);
   Draggable.create(window, { selector: '.drag-3', button: 'middle' }).attach(view.webContents);
   if (dragHandler !== Draggable.from(window)) {
     window.destroy();

@@ -16,9 +16,9 @@ export interface DragOptions {
   region?: Partial<Rectangle>;
   /** Mouse button that triggers the drag. Default: 'left' */
   button?: 'left' | 'right' | 'middle';
-  /** CSS selector that marks elements as drag handles. Exclusive with `exclude`. */
+  /** CSS selector that marks elements as drag handles. Can be combined with `exclude`. */
   selector?: string;
-  /** CSS selector for elements that should NOT trigger drag. Exclusive with `selector`. */
+  /** CSS selector for elements that should NOT trigger drag. Can be combined with `selector`. */
   exclude?: string;
   /** Enable double-click to maximize/unmaximize. */
   maximize?: boolean;
@@ -370,12 +370,8 @@ export class Draggable {
   private static isDraggable(webContents: WebContents, point: Point, options: InternalDragOptions): boolean | Promise<boolean> {
     if (options.region && !Draggable.isDraggingRegion(options.region, point)) { return false; }
 
-    if (options.selector) {
-      return Draggable.closest(webContents, point, options.selector);
-    }
-
-    if (options.exclude) {
-      return Draggable.closest(webContents, point, options.exclude, true);
+    if (options.selector || options.exclude) {
+      return Draggable.closest(webContents, point, options.selector, options.exclude);
     }
 
     return true;
@@ -405,8 +401,10 @@ export class Draggable {
       }
   }
 
-  private static closest(webContents: WebContents, p: Point, selector: string, negate?: true): Promise<boolean> {
-    return webContents.executeJavaScript(`${negate ? '!' : '!!'}document.elementFromPoint(${p.x}, ${p.y})?.closest(${selector})`).catch(Draggable.CATCH_FALSE);
+  private static closest(webContents: WebContents, p: Point, selector?: string, exclude?: string): Promise<boolean> {
+    const selectorClause = selector ? `(el && !!el.closest(${selector})) && ` : 'true && ';
+    const excludeClause = exclude ? `!(el && el.closest(${exclude}))` : 'true';
+    return webContents.executeJavaScript(`{ const el = document.elementFromPoint(${p.x}, ${p.y}); ${selectorClause}${excludeClause}; }`).catch(Draggable.CATCH_FALSE);
   }
 
   private static setWindowRef(window: DraggableWindow, instance: Draggable | undefined): void {
