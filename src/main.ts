@@ -291,10 +291,12 @@ export class Draggable {
       // is used, a mouseUp could arrive before resolution; in that case, the next mouseDown
       // will naturally clean up via the interval guard above.
       if (input.clickCount === 1) {
-        options.isDraggable = Draggable.isDraggable(wc, input, options);
+        // Not using input.x/y because of inconsistent values (e.g. relative to popups like color picker)
+        const cursor = screen.getCursorScreenPoint();
+        const point = this.getRelativeCursorPoint(cursor);
+        options.isDraggable = Draggable.isDraggable(wc, point, options);
         if (options.isDraggable === false) { return; }
-         // Not using input.x/y because of inconsistent values
-        this.updateOffset();
+        this.updateOffset(cursor);
         if (options.isDraggable === true) { options.interval = null; return; }
         options.isDraggable.then(d => d && (options.interval = null));
         return;
@@ -307,6 +309,11 @@ export class Draggable {
         options.isDraggable!.then(d => d && (e.preventDefault(), this.toggleMaximize()));
       }
     }
+  }
+
+  private getRelativeCursorPoint(cursor = screen.getCursorScreenPoint()): Point {
+    const winPos = this.window!.getPosition();
+    return { x: cursor.x - winPos[0], y: cursor.y - winPos[1] };
   }
 
   private startDragging(options: InternalDragOptions) {
@@ -350,11 +357,9 @@ export class Draggable {
     console.debug('Dragging stopped');
   }
 
-  private updateOffset(point: Point = screen.getCursorScreenPoint()) {
+  private updateOffset(cursor: Point = screen.getCursorScreenPoint()) {
     console.debug('Updating drag offset');
-    const winPos = this.window!.getPosition();
-    this.offset.x = point.x - winPos[0];
-    this.offset.y = point.y - winPos[1];
+    this.offset = this.getRelativeCursorPoint(cursor);
   }
 
   private updatePosition() {
