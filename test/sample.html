@@ -3,8 +3,8 @@
 <head>
     <title>Sample</title>
 </head>
-<body style="margin: 0; padding: 0; cursor: default !important;">
-    <div style="height: 100px; background-color: rgb(89, 202, 89); display: flex; align-items: center; justify-content: center; gap: 10px;">
+<body style="margin: 0; padding: 0; cursor: default !important">
+    <div style="width: 100vw; height: 100px; background-color: rgb(89, 202, 89); display: flex; align-items: center; justify-content: center; gap: 10px;">
         <div>
             <div>
                 <div>
@@ -30,7 +30,11 @@
             <span>Not Draggable!</span>
         </div>
         <button onclick="console.log('click')">Not Draggable Button</button>
-        <div class="not-drag-1 drag-2" style="background-color: rgb(238, 238, 29);display: flex; align-items: center; justify-content: center; padding: 5px;">10 FPS drag area</div>
+        <div class="not-drag-1 drag-2" style="background-color: rgb(238, 238, 29);display: flex; align-items: center; justify-content: center; padding: 5px;">10 FPS drag area
+            <div class="not-drag-2" style="background-color: rgb(194, 57, 57); display: flex; align-items: center; justify-content: center; padding: 5px;">
+            <span>Not Draggable!</span>
+            </div>
+        </div>
         <div class="not-drag-1 drag-3" style="background-color: rgb(238, 238, 29);display: flex; align-items: center; justify-content: center; padding: 5px;">Drag w/ middle button</div>
     </div>
     
@@ -46,5 +50,12 @@ Suspendisse vel euismod ante. Nunc sagittis quam ut gravida pulvinar. Sed at sem
 
 Aliquam ut pellentesque tellus, quis vulputate nisl. Phasellus vitae blandit nunc, eu sodales velit. Duis enim tellus, faucibus id arcu vitae, consectetur tempus mauris. Praesent commodo commodo dolor non malesuada. Donec sed dolor eget arcu tincidunt efficitur sit amet vel nisi. Sed consectetur tincidunt molestie. Nam at magna a odio rhoncus convallis id eu nunc. Nam luctus ut leo et viverra. Proin tempor libero vitae arcu laoreet, sed pharetra sapien rutrum. Nam nunc orci, aliquet sit amet dignissim nec, aliquet quis quam. Nulla facilisi.
     </span>
+
+    <select name="point-bug-test" id="point-bug-test">
+        <option value="1">1</option>
+        <option value="2">2</option>
+        <option value="3">3</option>
+    </select>
+    <input type="color" name="point-bug-test-2" id="point-bug-test-2">
 </body>
 </html>

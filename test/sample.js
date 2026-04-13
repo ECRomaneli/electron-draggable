@@ -18,11 +18,15 @@ function setupWindow() {
   });
   window.contentView.addChildView(view);
   view.setBounds({ x: 0, y: 0, width: 800, height: 600 });
+  window.on('resize', () => {
+    const [width, height] = window.getContentSize();
+    view.setBounds({ x: 0, y: 0, width, height });
+  });
   view.webContents.loadFile(`${__dirname}/sample.html`);
   const dragHandler = Draggable.from(window, { region: { height: 100 }, maximize: true }).attach(view.webContents, { exclude: '.not-drag-1'});
   window.__wdrag__ = null;
   window.__wdrag__ = void 0;
-  Draggable.create(window, { selector: '.drag-2', fps: 10 }).attach(view.webContents);
+  Draggable.create(window, { selector: '.drag-2', exclude: '.not-drag-2', fps: 10 }).attach(view.webContents);
   Draggable.create(window, { selector: '.drag-3', button: 'middle' }).attach(view.webContents);
   if (dragHandler !== Draggable.from(window)) {
     window.destroy();

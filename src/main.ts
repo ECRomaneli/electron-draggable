@@ -16,9 +16,9 @@ export interface DragOptions {
   region?: Partial<Rectangle>;
   /** Mouse button that triggers the drag. Default: 'left' */
   button?: 'left' | 'right' | 'middle';
-  /** CSS selector that marks elements as drag handles. Exclusive with `exclude`. */
+  /** CSS selector that marks elements as drag handles. Can be combined with `exclude`. */
   selector?: string;
-  /** CSS selector for elements that should NOT trigger drag. Exclusive with `selector`. */
+  /** CSS selector for elements that should NOT trigger drag. Can be combined with `selector`. */
   exclude?: string;
   /** Enable double-click to maximize/unmaximize. */
   maximize?: boolean;
@@ -291,14 +291,12 @@ export class Draggable {
       // is used, a mouseUp could arrive before resolution; in that case, the next mouseDown
       // will naturally clean up via the interval guard above.
       if (input.clickCount === 1) {
-        options.isDraggable = Draggable.isDraggable(wc, input, options);
-        if (this.window!.isMaximized()) {
-          console.debug('Ignoring drag event because window is maximized');
-          return;
-        }
+        // Not using input.x/y because of inconsistent values (e.g. relative to popups like color picker)
+        const cursor = screen.getCursorScreenPoint();
+        const point = this.getRelativeCursorPoint(cursor);
+        options.isDraggable = Draggable.isDraggable(wc, point, options);
         if (options.isDraggable === false) { return; }
-         // Not using input.x/y because of inconsistent values
-        this.updateOffset();
+        this.updateOffset(cursor);
         if (options.isDraggable === true) { options.interval = null; return; }
         options.isDraggable.then(d => d && (options.interval = null));
         return;
@@ -313,7 +311,37 @@ export class Draggable {
     }
   }
 
+  private getRelativeCursorPoint(cursor = screen.getCursorScreenPoint()): Point {
+    const winPos = this.window!.getPosition();
+    return { x: cursor.x - winPos[0], y: cursor.y - winPos[1] };
+  }
+
   private startDragging(options: InternalDragOptions) {
+    const bounds = this.window!.getBounds();
+    const normalBounds = this.window!.getNormalBounds();
+    const isSnappedOrMaximized = bounds.x !== normalBounds.x || bounds.y !== normalBounds.y
+        || bounds.width !== normalBounds.width || bounds.height !== normalBounds.height;
+
+    if (isSnappedOrMaximized) {
+      const cursor = screen.getCursorScreenPoint();
+
+      // Calculate mouse position relative to the window size (percentage)
+      const relativeX = (cursor.x - bounds.x) / bounds.width;
+      const relativeY = (cursor.y - bounds.y) / bounds.height;
+
+      console.debug('Window is maximized/snapped, restoring before drag');
+      if (this.window!.isMaximized()) { this.window!.unmaximize(); }
+
+      // Move the window so the cursor is still on the same relative position
+      this.window!.setBounds({
+        x: Math.round(cursor.x - relativeX * normalBounds.width),
+        y: Math.round(cursor.y - relativeY * normalBounds.height),
+        width: normalBounds.width,
+        height: normalBounds.height
+      });
+      this.updateOffset(cursor);
+    }
+
     console.debug('Dragging started');
     this.window!.on('resize', this.onResizeDuringDrag);
     options.interval = setInterval(() => this.updatePosition(), options.intervalDelay);
@@ -329,11 +357,9 @@ export class Draggable {
     console.debug('Dragging stopped');
   }
 
-  private updateOffset(point: Point = screen.getCursorScreenPoint()) {
+  private updateOffset(cursor: Point = screen.getCursorScreenPoint()) {
     console.debug('Updating drag offset');
-    const winPos = this.window!.getPosition();
-    this.offset.x = point.x - winPos[0];
-    this.offset.y = point.y - winPos[1];
+    this.offset = this.getRelativeCursorPoint(cursor);
   }
 
   private updatePosition() {
@@ -349,12 +375,8 @@ export class Draggable {
   private static isDraggable(webContents: WebContents, point: Point, options: InternalDragOptions): boolean | Promise<boolean> {
     if (options.region && !Draggable.isDraggingRegion(options.region, point)) { return false; }
 
-    if (options.selector) {
-      return Draggable.closest(webContents, point, options.selector);
-    }
-
-    if (options.exclude) {
-      return Draggable.closest(webContents, point, options.exclude, true);
+    if (options.selector || options.exclude) {
+      return Draggable.closest(webContents, point, options.selector, options.exclude);
     }
 
     return true;
@@ -384,8 +406,10 @@ export class Draggable {
       }
   }
 
-  private static closest(webContents: WebContents, p: Point, selector: string, negate?: true): Promise<boolean> {
-    return webContents.executeJavaScript(`${negate ? '!' : '!!'}document.elementFromPoint(${p.x}, ${p.y})?.closest(${selector})`).catch(Draggable.CATCH_FALSE);
+  private static closest(webContents: WebContents, p: Point, selector?: string, exclude?: string): Promise<boolean> {
+    const selectorClause = selector ? `(el && !!el.closest(${selector})) && ` : 'true && ';
+    const excludeClause = exclude ? `!(el && el.closest(${exclude}))` : 'true';
+    return webContents.executeJavaScript(`{ const el = document.elementFromPoint(${p.x}, ${p.y}); ${selectorClause}${excludeClause}; }`).catch(Draggable.CATCH_FALSE);
   }
 
   private static setWindowRef(window: DraggableWindow, instance: Draggable | undefined): void {
