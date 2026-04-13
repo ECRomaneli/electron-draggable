@@ -330,7 +330,13 @@ export class Draggable {
       const relativeY = (cursor.y - bounds.y) / bounds.height;
 
       console.debug('Window is maximized/snapped, restoring before drag');
-      if (this.window!.isMaximized()) { this.window!.unmaximize(); }
+      if (this.window!.isMaximized()) {
+        if (!options.maximize) {
+          this.stopDragging(options);
+          return;
+        }
+        this.window!.unmaximize();
+      }
 
       // Move the window so the cursor is still on the same relative position
       this.window!.setBounds({
