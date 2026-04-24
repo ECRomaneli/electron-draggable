@@ -382,7 +382,7 @@ export class Draggable {
     if (options.region && !Draggable.isDraggingRegion(options.region, point)) { return false; }
 
     if (options.selector || options.exclude) {
-      return Draggable.closest(webContents, point, options.selector, options.exclude);
+      return Draggable.closest(webContents, options.selector, options.exclude);
     }
 
     return true;
@@ -412,10 +412,10 @@ export class Draggable {
       }
   }
 
-  private static closest(webContents: WebContents, p: Point, selector?: string, exclude?: string): Promise<boolean> {
+  private static closest(webContents: WebContents, selector?: string, exclude?: string): Promise<boolean> {
     const selectorClause = selector ? `(el && !!el.closest(${selector})) && ` : 'true && ';
     const excludeClause = exclude ? `!(el && el.closest(${exclude}))` : 'true';
-    return webContents.executeJavaScript(`{ const el = document.elementFromPoint(${p.x}, ${p.y}); ${selectorClause}${excludeClause}; }`).catch(Draggable.CATCH_FALSE);
+    return webContents.executeJavaScript(`{ const els = document.querySelectorAll(':hover'); const el = els[els.length - 1]; ${selectorClause}${excludeClause}; }`).catch(Draggable.CATCH_FALSE);
   }
 
   private static setWindowRef(window: DraggableWindow, instance: Draggable | undefined): void {
